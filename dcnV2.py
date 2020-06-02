@@ -112,3 +112,35 @@ def DeformableConv2D(input,
                                            input_shape[2],
                                            input_shape[3]])
 
+# [batch, kernel*kernel, bottom, left, channel]
+        var_bkblc = tf.gather_nd(input, tf.reshape(coordi_bkbl, [-1, 3]))
+        var_bl = tf.reshape(var_bkblc, [input_shape[0] * kernel_size * kernel_size,
+                                           input_shape[1],
+                                           input_shape[2],
+                                           input_shape[3]])
+
+        #[batch, kernel*kernel, bottom, right, channel]
+        var_bkbrc = tf.gather_nd(input, tf.reshape(coordi_bkbr, [-1, 3]))
+        var_br = tf.reshape(var_bkbrc, [input_shape[0] * kernel_size * kernel_size,
+                                           input_shape[1],
+                                           input_shape[2],
+                                           input_shape[3]])
+
+        offset_y = tf.expand_dims(coordi_yx[...,0] - tf.floor(coordi_yx[...,0]),axis=-1)
+        offset_x = tf.expand_dims(coordi_yx[...,1] - tf.floor(coordi_yx[...,1]),axis=-1)
+
+        offset_y = tf.tile(offset_y,[1,1,1,input_shape[3]])
+        offset_x = tf.tile(offset_x,[1,1,1,input_shape[3]])
+
+        var_top = var_tl + (var_tr - var_tl)*offset_x
+        var_bottom = var_bl + (var_br - var_bl)*offset_x
+        var_final = var_top + (var_bottom - var_top)*offset_y
+
+        modulation = tf.expand_dims(modulation,axis = -1)
+        var_final = var_final * modulation
+
+        var_final = tf.reshape(var_final,[input_shape[0],kernel_size,kernel_size,input_shape[1],input_shape[2],input_shape[3]])
+        var_final = tf.transpose(var_final,[0,1,3,2,4,5])
+        var_final = tf.reshape(var_final, [input_shape[0],kernel_size*input_shape[1],kernel_size,input_shape[2],input_shape[3]])
+        var_final = tf.reshape(var_final, [input_shape[0],kernel_size*input_shape[1],kernel_size*input_shape[2],input_shape[3]])
+
