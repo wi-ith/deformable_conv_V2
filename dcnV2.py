@@ -60,6 +60,8 @@ def DeformableConv2D(input,
                                        scope='weights_conv')
             modulation = tf.sigmoid(modulation)
 
+
+
         input_shape = tf.shape(input)
 
         # [b, h, w, 2c] -> [b*c, h, w, 2]
@@ -112,7 +114,7 @@ def DeformableConv2D(input,
                                            input_shape[2],
                                            input_shape[3]])
 
-# [batch, kernel*kernel, bottom, left, channel]
+        # [batch, kernel*kernel, bottom, left, channel]
         var_bkblc = tf.gather_nd(input, tf.reshape(coordi_bkbl, [-1, 3]))
         var_bl = tf.reshape(var_bkblc, [input_shape[0] * kernel_size * kernel_size,
                                            input_shape[1],
@@ -144,3 +146,32 @@ def DeformableConv2D(input,
         var_final = tf.reshape(var_final, [input_shape[0],kernel_size*input_shape[1],kernel_size,input_shape[2],input_shape[3]])
         var_final = tf.reshape(var_final, [input_shape[0],kernel_size*input_shape[1],kernel_size*input_shape[2],input_shape[3]])
 
+        if seperable:
+            var_final = tc.layers.separable_conv2d(var_final, None, kernel_size, 1,
+                                                   stride=kernel_size,
+                                                   activation_fn=tf.nn.relu6,
+                                                   normalizer_fn=normalizer_fn,
+                                                   normalizer_params=normalizer_params,
+                                                   padding='VALID',
+                                                   rate=1,
+                                                   scope='output_conv_depthwise')
+
+            var_final = tc.layers.conv2d(var_final, output_dims, 1,
+                                         activation_fn=tf.nn.relu6,
+                                         normalizer_fn=normalizer_fn,
+                                         normalizer_params=normalizer_params,
+                                         scope='output_conv_pointwise')
+
+        else:
+            var_final = tc.layers.conv2d(var_final,
+                                         output_dims,
+                                         kernel_size,
+                                         stride=kernel_size,
+                                         padding='VALID',
+                                         activation_fn=activation_fn,
+                                         normalizer_fn=normalizer_fn,
+                                         biases_initializer=biases_initializer,
+                                         normalizer_params=normalizer_params,
+                                         scope='output_conv')
+
+        return var_final
